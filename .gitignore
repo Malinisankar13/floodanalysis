@@ -1,0 +1,40 @@
+# Dataset – do not commit
+data/dataset/
+data/masks/
+data/raw/
+
+# Saved model weights (large binary files)
+saved_models/
+
+# Output images (generated artifacts)
+outputs/
+
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+
+# PyTorch model files
+*.pth
+*.pt
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

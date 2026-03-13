@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloodEye | UAV Analytics Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Plus+Jakarta+Sans:wght@400;700&display=swap"
+        rel="stylesheet">
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #0c0e14;
+            --surface-color: rgba(255, 255, 255, 0.05);
+            --primary: #4a90e2;
+            --accent: #ff4d4d;
+            --text-main: #e0e6ed;
+            --text-muted: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 50%, #1a1f2e 0%, #0c0e14 100%);
+        }
+
+        /* Hero Header */
+        header {
+            padding: 2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--primary);
+        }
+
+        /* Main Grid */
+        main {
+            padding: 2rem 4rem;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.9);
+        }
+
+        /* Upload Section */
+        .upload-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 15px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary);
+        }
+
+        /* Results Display */
+        .results-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .result-item {
+            text-align: center;
+        }
+
+        .result-item img {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Sidebar Stats */
+        .stats-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .stat-box {
+            background: rgba(74, 144, 226, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 1.5rem;
+            border-radius: 0 15px 15px 0;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        /* Chart Area */
+        .chart-container {
+            margin-top: 2rem;
+            height: 300px;
+        }
+
+        /* Buttons */
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            filter: brightness(1.2);
+            transform: scale(1.05);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--glass-border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Animations */
+        /* Land Use Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .color-box {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+
+        /* Detailed Stats */
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .mini-stat {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.8rem;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .mini-stat p {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .mini-stat .val {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .quality-metrics {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(46, 204, 113, 0.05);
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            border-radius: 12px;
+        }
+
+        .perf-metrics {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .metric-val {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #2ecc71;
+        }
+
+        .metric-val.blue {
+            color: #3498db;
+        }
+
+        .metric-val.orange {
+            color: #e67e22;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="logo">
+            <i data-lucide="eye"></i>
+            Anomaly-Aware Flood Expansion Detection and Prediction Using CNN and LSTM
+        </div>
+        <div>
+            <span id="status-badge"
+                style="background: #27ae60; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem;">System
+                Active</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="fade-in">
+            <div class="card">
+                <h2 style="margin-bottom: 1.5rem;">Image Sequence Upload</h2>
+                <div class="upload-zone" id="drop-zone">
+                    <i data-lucide="upload-cloud"
+                        style="width: 48px; height: 48px; color: var(--primary); margin-bottom: 1rem;"></i>
+                    <p>Drag images or click to browse</p>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Support JPG/PNG
+                        sequences</p>
+                    <input type="file" id="file-input" multiple hidden accept="image/*">
+                </div>
+                <div id="loading" class="spinner"></div>
+                <div id="results" class="results-container"></div>
+
+                <div class="legend" id="land-legend" style="display: none;">
+                    <div class="legend-item">
+                        <div class="color-box" style="background: #ff3c3c;"></div> Buildings
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background: #ffff3c;"></div> Roads
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background: #3c64ff;"></div> Water
+                    </div>
+                    <div class="legend-item">
+                        <div class="color-box" style="background: #3cffff;"></div> Pools
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem;">
+                    <h2 id="trend-title">Flood Area Trend</h2>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">T = Time Interval</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <aside class="stats-sidebar fade-in" style="animation-delay: 0.2s;">
+            <div class="card">
+                <h3>Current Analysis</h3>
+                <div style="margin-top: 1.5rem;">
+                    <div class="stat-box">
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">LATEST FLOODED AREA</p>
+                        <div class="stat-value" id="latest-area">0 m²</div>
+                        <p id="latest-area-km" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+                            0.00 km²</p>
+                    </div>
+                </div>
+
+                <div class="breakdown-grid" id="breakdown-display">
+                    <div class="mini-stat">
+                        <p>Buildings</p>
+                        <div class="val" id="stat-building">0 m²</div>
+                    </div>
+                    <div class="mini-stat">
+                        <p>Roads</p>
+                        <div class="val" id="stat-road">0 m²</div>
+                    </div>
+                    <div class="mini-stat">
+                        <p>Water Bodies</p>
+                        <div class="val" id="stat-water">0 m²</div>
+                    </div>
+                    <div class="mini-stat">
+                        <p>Pools/Others</p>
+                        <div class="val" id="stat-pool">0 m²</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem;">
+                    <div class="stat-box" style="border-left-color: var(--accent); background: rgba(255, 77, 77, 0.1);">
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">PREDICTED NEXT STEP</p>
+                        <div class="stat-value" id="predicted-area">0 m²</div>
+                    </div>
+                </div>
+
+                <div class="quality-metrics" id="quality-display" style="display: none;">
+                    <p style="font-size: 0.8rem; font-weight: 700; margin-bottom: 0.8rem; color: #2ecc71;">
+                        <i data-lucide="shield-check" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                        CNN SEGMENTATION PERFORMANCE
+                    </p>
+                    <div class="metric-row">
+                        <span class="metric-label">Pixel Accuracy</span>
+                        <span class="metric-val" id="stat-accuracy">0%</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Precision / Recall</span>
+                        <span class="metric-val" id="stat-pr">0 / 0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">mIoU / F1-Score</span>
+                        <span class="metric-val" id="stat-iou-f1">0.00 / 0.00</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Dice Coefficient</span>
+                        <span class="metric-val" id="stat-dice">0.00</span>
+                    </div>
+                </div>
+
+                <div class="perf-metrics" id="lstm-display" style="display: none;">
+                    <p style="font-size: 0.8rem; font-weight: 700; margin-bottom: 0.8rem; color: #3498db;">
+                        <i data-lucide="trending-up" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                        LSTM PREDICTION ACCURACY
+                    </p>
+                    <div class="metric-row">
+                        <span class="metric-label">MAE / RMSE</span>
+                        <span class="metric-val blue" id="stat-mae-rmse">0 / 0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">MAPE (Error %)</span>
+                        <span class="metric-val blue" id="stat-mape">0%</span>
+                    </div>
+                </div>
+
+                <div class="perf-metrics" id="system-display" style="display: none;">
+                    <p style="font-size: 0.8rem; font-weight: 700; margin-bottom: 0.8rem; color: #e67e22;">
+                        <i data-lucide="cpu" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                        SYSTEM ANALYTICS
+                    </p>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Processing Time</span>
+                        <span class="metric-val orange" id="stat-time">0ms</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Deduction Rate</span>
+                        <span class="metric-val orange" id="stat-deduction">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>System Logs</h3>
+                <div id="logs"
+                    style="font-size: 0.8rem; line-height: 1.6; margin-top: 1rem; max-height: 200px; overflow-y: auto; font-family: monospace;">
+                    <div>[INFO] Waiting for user input...</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const resultsDiv = document.getElementById('results');
+        const loading = document.getElementById('loading');
+        const latestArea = document.getElementById('latest-area');
+        const predictedArea = document.getElementById('predicted-area');
+        const logs = document.getElementById('logs');
+
+        let trendChart;
+        // Init Chart
+        function initChart(data = [], label = []) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            if (trendChart) trendChart.destroy();
+
+            const xLabels = label.length > 0 ? label : ['T1', 'T2', 'T3', 'T4', 'T5'];
+            const yData = data.length > 0 ? data : [0, 0, 0, 0, 0];
+
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: xLabels,
+                    datasets: [{
+                        label: 'Flood Area',
+                        data: yData,
+                        borderColor: '#4a90e2',
+                        backgroundColor: 'rgba(74, 144, 226, 0.15)',
+                        fill: true,
+                        tension: 0.45,
+                        borderWidth: 3,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#4a90e2',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 8,
+                        pointHoverBackgroundColor: '#4a90e2',
+                        pointHoverBorderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 10, bottom: 10 } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(12, 14, 20, 0.9)',
+                            titleFont: { size: 14, family: 'Outfit' },
+                            bodyFont: { size: 13 },
+                            padding: 12,
+                            borderColor: 'rgba(74, 144, 226, 0.3)',
+                            borderWidth: 1,
+                            displayColors: false,
+                            callbacks: {
+                                label: (context) => `Area: ${context.parsed.y} m²`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Flood Area (m²)',
+                                color: '#94a3b8',
+                                font: { size: 12, family: 'Outfit', weight: '600' }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time Intervals (Ti)',
+                                color: '#94a3b8',
+                                font: { size: 12, family: 'Outfit', weight: '600' }
+                            },
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Upload Handlers
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleUpload(e.target.files);
+
+        async function handleUpload(files) {
+            if (files.length === 0) return;
+
+            loading.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            addLog(`Processing sequence of ${files.length} images...`);
+
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch('http://localhost:8000/api/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.status === 'Success') {
+                    renderResults(data);
+                    addLog(`Successfully analyzed sequence.`);
+                } else {
+                    addLog(`[ERROR] Server returned failure: ${data.message}`, true);
+                }
+            } catch (err) {
+                addLog(`[ERROR] Connection failed: ${err.message}`, true);
+                alert("Make sure the backend server (app.py) is running!");
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderResults(data) {
+            resultsDiv.innerHTML = '';
+            document.getElementById('land-legend').style.display = 'flex';
+
+            data.masks.forEach((mask, i) => {
+                const item = document.createElement('div');
+                item.className = 'result-item fade-in';
+                item.style.animationDelay = `${i * 0.1}s`;
+                item.innerHTML = `
+                    <img src="data:image/png;base64,${mask}" alt="Mask T${i + 1}">
+                    <p style="font-size: 0.75rem; font-weight: 600;">T${i + 1}: ${data.metrics_m2[i]} m²</p>
+                `;
+                resultsDiv.appendChild(item);
+            });
+
+            const lastIdx = data.metrics_m2.length - 1;
+            const lastBreakdown = data.breakdowns[lastIdx];
+
+            latestArea.innerText = `${data.metrics_m2[lastIdx]} m²`;
+            document.getElementById('latest-area-km').innerText = `${(data.metrics_m2[lastIdx] / 1000000).toFixed(4)} km²`;
+            predictedArea.innerText = `${data.prediction_m2} m²`;
+
+            // Update Breakdown
+            document.getElementById('stat-building').innerText = `${lastBreakdown.Building.area_m2} m²`;
+            document.getElementById('stat-road').innerText = `${lastBreakdown.Road.area_m2} m²`;
+            document.getElementById('stat-water').innerText = `${lastBreakdown.Water.area_m2} m²`;
+            document.getElementById('stat-pool').innerText = `${lastBreakdown.Pool.area_m2} m²`;
+
+            const labels = data.areas.map((_, i) => `T${i + 1}`);
+            labels.push('NEXT (PRED)');
+            const plotData = [...data.metrics_m2, data.prediction_m2];
+
+            initChart(plotData, labels);
+
+            // Dynamic Trend Title - Based on Historical Trend (T1 to T_latest)
+            const trendTitle = document.getElementById('trend-title');
+            const firstArea = data.metrics_m2[0];
+            const lastArea = data.metrics_m2[lastIdx];
+
+            if (lastArea > firstArea) {
+                trendTitle.innerText = "Flood Expansion Trend";
+                trendTitle.style.color = "#ff4d4d"; // Red for expansion
+            } else if (lastArea < firstArea) {
+                trendTitle.innerText = "Flood Recession Trend";
+                trendTitle.style.color = "#4a90e2"; // Blue for recession
+            } else {
+                trendTitle.innerText = "Flood Area Stable";
+                trendTitle.style.color = "#e0e6ed";
+            }
+
+            // Update Quality Metrics (Average of the sequence)
+            const hasGT = data.quality_metrics.some(q => q.has_gt);
+            const qualityDisplay = document.getElementById('quality-display');
+            const lstmDisplay = document.getElementById('lstm-display');
+            const systemDisplay = document.getElementById('system-display');
+
+            if (hasGT) {
+                qualityDisplay.style.display = 'block';
+                const validMetrics = data.quality_metrics.filter(q => q.has_gt);
+                const avgAcc = validMetrics.reduce((acc, q) => acc + q.accuracy, 0) / validMetrics.length;
+                const avgIoU = validMetrics.reduce((acc, q) => acc + q.iou, 0) / validMetrics.length;
+                const avgDice = validMetrics.reduce((acc, q) => acc + q.dice, 0) / validMetrics.length;
+                const avgPrec = validMetrics.reduce((acc, q) => acc + q.precision, 0) / validMetrics.length;
+                const avgRecall = validMetrics.reduce((acc, q) => acc + q.recall, 0) / validMetrics.length;
+                const avgF1 = validMetrics.reduce((acc, q) => acc + q.f1, 0) / validMetrics.length;
+
+                document.getElementById('stat-accuracy').innerText = `${(avgAcc * 100).toFixed(2)}%`;
+                document.getElementById('stat-pr').innerText = `${avgPrec.toFixed(3)} / ${avgRecall.toFixed(3)}`;
+                document.getElementById('stat-iou-f1').innerText = `${avgIoU.toFixed(3)} / ${avgF1.toFixed(3)}`;
+                document.getElementById('stat-dice').innerText = avgDice.toFixed(4);
+            } else {
+                qualityDisplay.style.display = 'none';
+            }
+
+            if (data.lstm_metrics && data.lstm_metrics.has_eval) {
+                lstmDisplay.style.display = 'block';
+                const l = data.lstm_metrics;
+                document.getElementById('stat-mae-rmse').innerText = `${l.mae.toFixed(1)} / ${l.rmse.toFixed(1)}`;
+                document.getElementById('stat-mape').innerText = `${(l.mape * 100).toFixed(2)}%`;
+            } else {
+                lstmDisplay.style.display = 'none';
+            }
+
+            systemDisplay.style.display = 'block';
+            document.getElementById('stat-time').innerText = `${data.timing.total_ms.toFixed(0)} ms`;
+
+            // Deduction Rate (Reduction in flood area between first and last step)
+            if (data.metrics_m2.length >= 2) {
+                const start = data.metrics_m2[0];
+                const end = data.metrics_m2[data.metrics_m2.length - 1];
+                const rate = ((start - end) / start) * 100;
+                document.getElementById('stat-deduction').innerText = `${rate.toFixed(1)}%`;
+            } else {
+                document.getElementById('stat-deduction').innerText = '0%';
+            }
+
+            lucide.createIcons();
+        }
+
+        function addLog(msg, isError = false) {
+            const time = new Date().toLocaleTimeString();
+            const logItem = document.createElement('div');
+            logItem.style.color = isError ? '#ff4d4d' : 'inherit';
+            logItem.innerText = `[${time}] ${msg}`;
+            logs.prepend(logItem);
+        }
+
+        // Initial setup
+        initChart([], []);
+    </script>
+</body>
+
+</html>
